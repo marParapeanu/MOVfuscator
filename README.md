@@ -38,7 +38,13 @@ Implementarea acestor instructiuni se bazeaza tot pe conceptul de look-up table.
 
 
 Instructiunile jump si cmp:
+Implicit, in Assembly, in instructiunea cmp realizeaza op2-op1, iar aceasta valoare se compara cu 0. Am implementat aceasta logica si in programul nostru, compararea realizandu-se de la MSB la LSB. Operanzii sunt mutati in memorie pentru a fi impartiti in bytes, iar dupa aceasta folosim doua tabele: cmp_byte_table, ce compara doi bytes si returneaza 0 daca sunt egali, 1 daca primul este mai mare sau 2 daca al doilea este mai mare, si transition_table, care implementeaza urmatoarea logica: dacă starea anterioară era 0, noua stare este dată de comparația byte-ului curent. Dacă starea anterioară era deja decisă (1 sau 2), aceasta se propagă neschimbată, indiferent de bytes-ii următori.
+Deoarece modificarea directă a registrului %eip prin mov este imposibilă, controlul fluxului de execuție este simulat prin manipularea stivei și a instrucțiunii ret.
+In cazul jump-ului neconditionat, se muta adresa etichetei destinatie in varful stivei, urmata de instructiunea ret, pentru a sari direct la acea eticheta.
+Jump-urile conditionate se bazeaza pe rezultatul calculat anterior de cmp (op2-op1) si se aplica o masca specifica pentru a determina o valoare booleana care ne informeaza daca trebuie sa efectuam saltul sau nu. Folosid un choosing_tabel care contine adresa instrucțiunii următoare și adresa etichetei destinație si in functie de aceasta valoare booleana punem adresa corecta pe stiva si apelam ret.
 
+Instructiunea loop:
+Loopul implementeaza o decrementare a registrului ecx, o comparare a valorii din ecx cu 0 si in cazul in care ecx!=0, jump la label. Pentru a implementa loop-ul am folosit functiile create anterior pentru a decrementa si a face cmp, jne.
 
 Instructiunea lea:
 In cazul nostru, o putem substitui cu mov $operand1, operand2, din moment ce este folosita doar pentru accesarea adresei inceputului unui array. 
