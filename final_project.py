@@ -5,7 +5,6 @@ main_instructions = []
 data = []
 jump_counter = 0
 
-
 def parse_and_transform(input_f, output_f):
     global main_instructions, data
     output_lines = []
@@ -35,7 +34,9 @@ def parse_and_transform(input_f, output_f):
         if not line:
             processed_instructions.append("")
             continue
-        transformed = process_instruction(line)
+        transformed=process_instruction(line)
+        if isinstance(transformed, tuple):
+            transformed = transformed[0]
         processed_instructions.extend(transformed)
 
     data = set(data)
@@ -69,6 +70,7 @@ def process_instruction(line):
 def parse_parts(parts, line):
     instruction = parts[0]
     operands_str = parts[1] if len(parts) > 1 else ""
+    global main_instructions
 
     if instruction.startswith("mov"):  # daca e mov, lasa asa (merge si pt movl, movb,...)
         return [line]
@@ -112,7 +114,7 @@ def parse_parts(parts, line):
             return transform_or(operands[0], operands[1])
         else:
             return [line]
-    #
+
     elif instruction.startswith("and"):
         operands = parse_operands(operands_str)
         if len(operands) == 2:
@@ -121,49 +123,57 @@ def parse_parts(parts, line):
             return [line]
 
     elif instruction.startswith("not"):
-        operands = parse_operands(operands_str)
-        if len(operands) == 2:
-            return transform_not(operands[0], operands[1])
+        operand = parse_operands(operands_str)
+        if len(operand) == 1:
+            return transform_not(operand)
         else:
             return [line]
 
     elif instruction.startswith("dec"):
         operand = parse_operands(operands_str)
         if isinstance(operand, str):
-            return transform_sub(operand, "$1")
-        else:
-            return [line]
-    #
-    # elif instruction.startswith("inc"):
-    #     operand = parse_operands(operands_str)
-    #     if isinstance(operand, str):
-    #         return transform_add(operand, "$1")
-    #     else:
-    #         return [line]
-    #
-    elif instruction.startswith("cmp"):
-        operands = parse_operands(operands_str)
-        if len(operands) == 2:
-            return transform_cmp(operands[0], operands[1])
+            L=["mov $1, %eax"]
+            L.extend(transform_sub("%eax", operand)[0])
+            return L
         else:
             return [line]
 
-    # elif instruction in ["je", "jge", "jg", "jl", "jle", "jne"]:
-    #     target= operands_str.strip()
-    #     return transform_jump(instruction, target)
-    #
-    #
-    # elif instruction=="jmp":
-    #     target=operands_str.strip()
-    #     return transform_jmp(target) #nu e dependent de un cmp
-    #
-    #
-    # elif instruction.startswith("lea"):
-    #     operands = parse_operands(operands_str) #lea    v, %edi -> movl $v, %edi
-    #     if len(operands) == 2:
-    #         return tranform_lea(operands[0], operands[1])
-    #     else:
-    #         return [line]+
+    elif instruction.startswith("inc"):
+        operand = parse_operands(operands_str)
+        if isinstance(operand, str):
+            L=["mov $1, %eax"]
+            L.extend(transform_add("eax", operand)[0])
+            return L
+        else:
+            return [line]
+
+    elif instruction.startswith("cmp"):
+        operand = parse_operands(operands_str)
+        if len(operand) == 2:
+            return transform_cmp(operand[0], operand[1])
+        else:
+            return [line], []
+
+    elif instruction in ["je", "jge", "jg", "jl", "jle", "jne"]:
+        target = operands_str.strip()
+        return transform_conditional_jump(instruction, target)
+
+
+    elif instruction == "jmp":
+        target = operands_str.strip()
+        return transform_unconditional_jump(target)  # nu e dependent de un cmp
+
+    elif instruction == "loop":
+        target = operands_str.strip()
+        return transform_loop_instr(target)
+
+
+    elif instruction.startswith("lea"):
+        operands = parse_operands(operands_str)  # lea    v, %edi -> movl $v, %edi
+        if len(operands) == 2:
+            return tranform_lea(operands[0], operands[1])
+        else:
+            return [line]
 
     # elif instruction.startswith("shl"):
     #     operands = parse_operands(operands_str)
@@ -190,6 +200,37 @@ def parse_parts(parts, line):
     # #shr cred ca e imposibil, e cu div
     #
     #
+
+    elif instruction.startswith("push"):
+        if "," in operands_str:
+            return [line]
+        else:
+            operand=parse_operands(operands_str)
+            instrs= []
+            sub_instr, sub_data= transform_sub("$4", "%esp")
+            data.extend(sub_data)
+            instrs.extend(sub_instr)
+            instrs.append(f"mov {operand}, 0(%esp)")
+            return instrs
+
+
+
+    elif instruction.startswith("pop"):
+        if "," in operands_str:
+            return [line]
+
+        else:
+            operand = parse_operands(operands_str)
+            instrs=[]
+            instrs.append(f"mov 0(%esp), {operand}")
+            add_instr, add_data=transform_add("$4", "%esp")
+            data.extend(add_data)
+            instrs.extend(add_instr)
+            instrs.append("movl rez, %esp")
+            return instrs
+
+
+
     else:
         return [line]  # daca am vreo instructiune unknown
 
@@ -274,6 +315,20 @@ def create_byte_comparison_table():
     return total_data
 
 
+def create_checking_table():
+    total_data = []
+    total_data.append("checking_table: .long ")
+    total_data.append("0")
+    total_data.append("0")
+    return total_data
+
+
+def transform_checking_table():
+    local_instructions = []
+    local_instructions.append("mov first_operand, checking_table(zero_value, one_value, 4)")
+    return local_instructions
+
+
 def transform_mul(first_operand, second_operand):
     local_instructions = []
     total_data = []
@@ -281,6 +336,7 @@ def transform_mul(first_operand, second_operand):
     instructions, cmp_data = transform_cmp(first_operand, second_operand)
     local_instructions.extend(instructions)
     total_data.extend(cmp_data)
+    # totul este salvat in global_data
 
     local_instructions.extend(create_choosing_table(first_operand, second_operand))
 
@@ -290,38 +346,37 @@ def transform_mul(first_operand, second_operand):
     local_instructions.append("mov choosing_table(global_value_times_8, one_value, 4), second_operand")
     # pana aici in first_operand se afla valoarea mai mare si in second_operand valoarea mai mica
 
-    number_of_repetitions = 2 ** 16
-
-    local_instructions.append("mov $0, counter")
-    local_instructions.append("mov $0, repetitive_sound")
+    number_of_repetitions = 32
+    local_instructions.append("mov $1, checking_value")
+    local_instructions.append("mov $0, total_sum")
 
     for index in range(number_of_repetitions):
-        local_instructions.extend(split_in_bytes("counter"))
-        local_instructions.extend(split_in_bytes("second_operand"))
-        local_instructions.extend(multiplicate_by_256("counter"))
+        # trebuie facut and intre second_value si checking_value
+        and_instructions = transform_and("second_operand", "checking_value")
+        local_instructions.extend(and_instructions)
+        # avem in acest moment o valoare care este 0 sau checking_value -> se poate duce pana la 2^32 => putem face o tabela doar cu puteri ale lui 2
+        # presupunem ca avem resultatul intr o variabila result
+        local_instructions.extend(transform_cmp("result", "zero_value"))
+        # nu are cum sa fie mai mica decat 0 deci facem o tabela : 0, first_value
+        total_data.extend(create_checking_table)
+        local_instructions.extend(transform_checking_table)
+        local_instructions.append("mov checking_table(zero_value, global_value, 4), and_result")
 
-        local_instructions.append("mov comparison_table(counter_3_times_256, second_operand_3, 1), global_value")
-        local_instructions.append("mov comparison_table(counter_2_times_256, second_operand_2, 1), local_value")
-        local_instructions.append("mov times_3(global_value, zero_value, 1), global_value_times_3")
-        local_instructions.append("mov byte_comparison_table(global_value_times_3, local_value, 1), global_value")
-        local_instructions.append("mov comparison_table(counter_1_times_256, second_operand, 1), local_value")
-        local_instructions.append("mov times_3(global_value, zero_value, 1), global_value_times_3")
-        local_instructions.append("mov byte_comparison_table(global_values_time_3, local_value, 1), global_value")
-        local_instructions.append("mov comparison_table(counter_0_times_256, second_operand_0, 1), local_value")
-        local_instructions.append("mov times_3(global_value, zero_value, 1), global_value_times_3")
-        local_instructions.append("mov byte_comparison_table(global_value_times_3, zero_value, 1), global_value")
-        local_instructions.append("mov decide_table(zero_value, global_value, 4), first_operand")
+        new_instructions, new_data = transform_add("and_result, total_sum")
+        local_instructions.extend(new_instructions)
+        total_data.extend(new_data)
 
-        instrs_add, data_add = transform_add("repetitive_sum", "first_operand")
-        local_instructions.extend(instrs_add)
-        data.extend(data_add)
+        new_instructions, new_data = transform_add("checking_value, checking_value")
+        local_instructions.extend(new_instructions)
+        total_data.extend(new_data)
 
-        instrs_count, data_count = transform_add("counter", "one_value")
-        local_instructions.extend(instrs_count)
-        data.extend(data_count)
+        new_instructions, new_data = transform_add("first_operand, first_operand")
+        local_instructions.extend(new_instructions)
+        total_data.extend(new_data)
+        # trebuie vazut in ce variabila se salveaza rezultatul adunarii
 
-    local_instructions.append(f"mov repetitive_sum, {first_operand}")
-    return local_instructions
+    local_instructions.append(f"{first_operand}, total_sum")
+    return local_instructions, total_data
 
 
 def transform_not(registru):
@@ -338,8 +393,8 @@ def transform_not(registru):
 
 def transform_and(first_operand, second_operand):
     local_instructions = []
-    local_instructions.append(f"mov %{first_operand}, first_and_storage")
-    local_instructions.append(f"mov %{second_operand}, second_and_storage")
+    local_instructions.append(f"mov {first_operand}, first_and_storage")
+    local_instructions.append(f"mov {second_operand}, second_and_storage")
     for i in range(4):
         local_instructions.append(f"movb first_and_storage+{i}, %ah")
         local_instructions.append(f"movb second_and_storage+{i}, %al")
@@ -352,8 +407,8 @@ def transform_and(first_operand, second_operand):
 
 def transform_or(first_operand, second_operand):
     local_instructions = []
-    local_instructions.append(f"mov %{first_operand}, first_or_storage")
-    local_instructions.append(f"mov %{second_operand}, second_or_storage")
+    local_instructions.append(f"mov {first_operand}, first_or_storage")
+    local_instructions.append(f"mov {second_operand}, second_or_storage")
     for i in range(4):
         local_instructions.append(f"movb first_or_storage+{i}, %ah")
         local_instructions.append(f"movb second_or_storage+{i}, %al")
@@ -366,8 +421,8 @@ def transform_or(first_operand, second_operand):
 
 def transform_xor(first_operand, second_operand):
     local_instructions = []
-    local_instructions.append(f"mov %{first_operand}, first_xor_storage")
-    local_instructions.append(f"mov %{second_operand}, second_xor_storage")
+    local_instructions.append(f"mov {first_operand}, first_xor_storage")
+    local_instructions.append(f"mov {second_operand}, second_xor_storage")
     for i in range(4):
         local_instructions.append(f"movb first_xor_storage+{i}, %ah")
         local_instructions.append(f"movb second_xor_storage+{i}, %al")
@@ -404,33 +459,145 @@ def transform_cmp(first_operand, second_operand):
     return local_instructions, total_data
 
 
-def transform_dec(first_operand):
-    local_instructions = []
-    total_data = []
-    local_instructions.append("mov $1, one_value")
-    instructions, data = transform_sub(first_operand, "one_value")
-    local_instructions.append(instructions)
-    total_data.append(data)
-    return local_instructions, total_data
-
 
 def transform_sub(first_operand, second_operand):
     all_instructions = []
     total_data = []
 
-    lines_not, data_not = transform_not(first_operand)
+    all_instructions.append(f"movl {first_operand}, sub_temp")
+    total_data.append("sub_temp: .space 4")
+    total_data.append("operand: .space 4")
+    total_data.append("deplasament: .space 1")
+
+    lines_not, data_not = transform_not("sub_temp")
     all_instructions.extend(lines_not)
     total_data.extend(data_not)
 
-    lines_a1, data_a1 = transform_add(first_operand, second_operand)
+    lines_a1, data_a1 = transform_add(second_operand, "sub_temp")
     all_instructions.extend(lines_a1)
     total_data.extend(data_a1)
 
-    lines_a2, data_a2 = transform_add(second_operand, 1)
+    lines_a2, data_a2 = transform_add("rez", "$1")
     all_instructions.extend(lines_a2)
     total_data.extend(data_a2)
 
+    all_instructions.append(f"movl rez, {second_operand}")
+
+
+
     return all_instructions, total_data
+
+
+def append_bytes_table(label, values):
+    # transforma o lista de int-uri intro lista .byte
+    lines = []
+    lines.append(f"{label}:")
+    size = 16
+    for i in range(0, len(values), size):
+        chunk = values[i: i + size]
+        str_val = ", ".join(str(x) for x in chunk)
+        lines.append(f"    .byte {str_val}")
+    return lines
+
+
+def get_cmp_tables():
+    # generam tabelele cmp si transition o singura data
+    global tables_generated
+    if tables_generated:
+        return []  # daca am generat deja, nu mai returnam nimic
+
+    data_lines = []
+
+    cmp_table = []
+    for a in range(256):
+        for b in range(256):
+            if a == b:
+                cmp_table.append(0)
+            elif a > b:
+                cmp_table.append(1)
+            else:
+                cmp_table.append(2)
+    data_lines.extend(append_bytes_table("cmp_byte_table", cmp_table))
+
+    transition_table = []
+    for old in range(256):
+        for new in range(256):
+            if old == 0:
+                transition_table.append(new)
+            else:
+                transition_table.append(old)
+    data_lines.extend(append_bytes_table("transition_table", transition_table))
+
+    tables_generated = True
+    return data_lines
+
+
+def transform_conditional_jump(jump_type, target_label):
+    global jump_counter
+    instr = []
+    data_list = []
+    jump_mask = [0, 0, 0]
+
+    if jump_type == "je":
+        jump_mask = [1, 0, 0]
+    elif jump_type == "jne":
+        jump_mask = [0, 1, 1]
+    elif jump_type == "jg":
+        jump_mask = [0, 1, 0]
+    elif jump_type == "jge":
+        jump_mask = [1, 1, 0]
+    elif jump_type == "jl":
+        jump_mask = [0, 0, 1]
+    elif jump_type == "jle":
+        jump_mask = [1, 0, 1]
+
+    mask_name = f"mask_table_{jump_counter}"
+    data_list.append(f"{mask_name}: .byte , {jump_mask[1]}, {jump_mask[2]}")
+
+    instr.append(f"mov $0, %edx")
+    instr.append(f"mov comparison_state, %dl")
+    instr.append(f"movb {mask_name}(%edx), %al")  # al=1 daca trb sa sarim, 0 altfel
+    next_label = f"next_{jump_counter}"
+    choosing_name = f"jump_targets_{jump_counter}"
+    data_list.append(f"{choosing_name}:")
+    data_list.append(f"    .long {next_label}")
+    data_list.append(f"    .long {target_label}")
+
+    instr.append("movl $0, %ecx")
+    instr.append("movb %al, %cl")
+    instr.append(f"mov {choosing_name}(, %ecx, 4), %ebx")
+    instr.append("mov %ebx, (%esp)")
+    instr.append("ret")
+    instr.append(f"{next_label}:")
+    jump_counter += 1
+    return instr, data_list
+
+
+def transform_unconditional_jump(target_label):
+    instr = []
+    instr.append(f"movl ${target_label}, (%esp)")
+    instr.append("ret")
+    return instr, []
+
+
+def transform_loop_instr(target_label):
+    # loop-ul automat decrementeaza ecx, il compara cu 0 si daca e diferit de 0 sare la loop_start
+    instr = []
+    data_list = []
+    sub_instr, sub_data = transform_sub("%ecx", "$1")  # rezultatul este pus in rez
+    instr.extend(sub_instr)
+    data_list.extend(sub_data)
+    instr.append("mov rez, %ecx")  # luam rezultatul din rez si il punem in %ecx ca sa putem continua loop-ul normal
+
+    cmp_instr, cmp_data = transform_cmp("%ecx", "$0")
+    instr.extend(cmp_instr)
+    data_list.extend(cmp_data)
+
+    jump_instr, jump_data = transform_conditional_jump("jne", target_label)
+    instr.extend(jump_instr)
+    data_list.extend(jump_data)
+
+    return instr, data_list
 
 
 parse_and_transform(input_f, output_f)
