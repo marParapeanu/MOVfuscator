@@ -28,7 +28,7 @@ Este un add cu operand $1.
 Este un sub cu operand $1.
 
 ★Instructiunea mul:
-
+Implementarea acestei functii se foloseste de functia de comparare a celor doua valori. Alegem valoarea mai mica, dupa care iteram prin bitii de la 0 la 31 si verificam daca respectivul bit se afla in valoarea mai mica. In caz pozitiv, la suma totala se adauga valoarea mai mare dintre cele doua. Indiferent de rezultat, pentru fiecare iteratie prin biti tinem intr-o valoare auxiliara dublul valorii curente utilizate pentru adaugarea in suma.
 
 ★Instructiunea shift left:
 Este un mul repetat cu operand 2. Instructiunea se realizeaza repetat pe baza marimii operandului.
