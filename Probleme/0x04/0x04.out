@@ -1,0 +1,38 @@
+.data
+	x1: .ascii "maria"
+	x2: .long 0x61676362
+	x3: .ascii "maria2"
+
+.text
+.global main
+main:
+	mov $4, %eax
+	mov $1, %ebx
+	mov $x1, %ecx
+	mov $14, %edx
+	int $0x80
+end:
+	movl $1, %eax
+	mov %ebx, first_xor_storage
+	mov %ebx, second_xor_storage
+	movb first_xor_storage+0, %ah
+	movb second_xor_storage+0, %al
+	movzwl %ax, %esi
+	movb xor_table(%esi), %cl
+	movb %cl, rez_xor+0
+	movb first_xor_storage+1, %ah
+	movb second_xor_storage+1, %al
+	movzwl %ax, %esi
+	movb xor_table(%esi), %cl
+	movb %cl, rez_xor+1
+	movb first_xor_storage+2, %ah
+	movb second_xor_storage+2, %al
+	movzwl %ax, %esi
+	movb xor_table(%esi), %cl
+	movb %cl, rez_xor+2
+	movb first_xor_storage+3, %ah
+	movb second_xor_storage+3, %al
+	movzwl %ax, %esi
+	movb xor_table(%esi), %cl
+	movb %cl, rez_xor+3
+	int $0x80
