@@ -43,10 +43,8 @@ Instructiunea mul:
 Instructiunea shift left:
 	Este un mul repetat cu operand 2. Instructiunea se realizeaza repetat pe baza marimii operandului.
 
-Instructiunea and:
-
-Instructiunea xor:
-
+Instructiunile and, or, xor:
+Implementarea acestor instructiuni se bazeaza tot pe conceptul de look-up table. Fiind operatii pe biti, aici este mai simplu pentru ca nu trebuie sa tinem cont de carry(ca la add). Stocam operanzii in memorie pentru a ii putea accesa pe bytes. Punem primul operand in %ah, al doilea operand in %al; acum avem indexul: %ax = (%ah*256) + %al. Accesam tabelul precalculat and si construim rezultatul pe bytes.
 
 
 Instructiunile jump si cmp:
