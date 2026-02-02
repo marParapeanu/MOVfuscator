@@ -19,7 +19,7 @@ Operanzii sunt impartiti in 4 bytes. Adunarea se realizeaza byte cu byte. Stocam
  
 ★Instructiunea sub:
 Este in esenta logica add-ului, dar in complement fata de 2.
-Se inverseaza bitii, se adauga 1, pentru a obtine -(operand). Se apeleaza add cu noul operand.
+Se apeleaza functia not, se inverseaza bitii. Pentru a putea adauga 1 la ~(operand) trebuie sa punem valoarea 1 intr-un registru si sa apelam functia add. Am ales registrul %edx, consecinta fiind ca un sub cu %edx nu va functiona corect. Acum avem -(operand). Se apeleaza add cu noul operand calculat.
 
 ★Instructiunea inc:
 Este un add cu operand $1.
