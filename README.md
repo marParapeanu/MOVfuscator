@@ -9,7 +9,10 @@ Teodorescu Luca Nicolae - Grupa 151
 Traducerea a cat mai multor instructiunilor dintr-un program Assembly in instructiuni de tip “mov”.
 
 🞺Functionalitate:
-Programul citeste un fisier assembly de intrare, identifica main-ul, iar apoi in functie de instructiune, realizeaza transformari specifice pentru a o rescrie.
+Programul citeste un fisier assembly de intrare, identifica main-ul, iar apoi in functie de instructiune, realizeaza transformari specifice pentru a o rescrie. Fisierul de iesire va contine transformarea codului din fisierul de intrare in instructiuni de tip 'mov', codurile fiind echivalente.
+
+
+Observatie: Toate fisierele de iesire .out sunt obtinute in urma rularii codului final_project.py pentru fiecare fisier de intrare introdus.
 
 
 ★Instructiunea add:
