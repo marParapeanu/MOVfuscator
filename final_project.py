@@ -268,7 +268,7 @@ def transform_add(first_operand, second_operand):
         main_instructions.append(f"movzbl %ax, %esi")  # noul index, practic cauta pe coloanele 0 sau 1, in functie de old carry
         main_instructions.append(f"movb sum_table(%esi), %cl")  # suma finala
         main_instructions.append(f"mov carry_sum_table(%esi), %dh")  # al doilea carry
-        main_instructions.append(f"movb %cl, rez+{index}")  # retinem in rezultat byte-ul calculat
+        main_instructions.append(f"movb %cl, rez_add+{index}")  # retinem in rezultat byte-ul calculat
 
         # calculam carry-ul final pentru urmatorul byte
         main_instructions.append("movb %dl, %ah")
@@ -276,7 +276,8 @@ def transform_add(first_operand, second_operand):
         main_instructions.append("movzbl %ax, %esi")
         main_instructions.append("movb or_table(%esi), %al")
         main_instructions.append("movb %al, old_carry")
-    data_nou = ["rez: .space 4",
+    main_instructions.append(f"movl rez_add, {second_operand}") #punem rezultatul inapoi in registru
+    data_nou = ["rez_add: .space 4",
                 "first_temp_storage: .space 4",
                 "second_temp_storage: .space 4",
                 "old_carry: .space 1"]
@@ -381,13 +382,15 @@ def transform_mul(first_operand, second_operand):
 
 def transform_not(registru):
     main_instructions = []
-    main_instructions.append(f"mov {registru}, operand")
+    main_instructions.append(f"mov {registru}, not_storage")
     for index in range(4):
-        main_instructions.append(f"movb operand + {index}, %al")
-        main_instructions.append(f"movb %al, deplasament")
-        main_instructions.append(f"movb deplasament(not_table), operand + {index}")
-    main_instructions.append(f"mov operand, {registru}")
-    new_data = ["not_table: .byte " + ",".join(str(255 - i) for i in range(256))]
+        main_instructions.append(f"movb not_storage+{index}, %al")
+        main_instructions.append(f"movzb %al, %esi")
+        main_instructions.append(f"movb not_table(%esi), %cl")
+        main_instructions.append(f"movb %cl, rez_not+{index}")
+    main_instructions.append(f"mov rez_not, {registru}")
+    # new_data = ["not_table: .byte " + ",".join(str(255 - i) for i in range(256))]
+    new_data = [f"not_storage: .space 4, rez_not: .space 4"]
     return main_instructions, new_data
 
 
@@ -469,21 +472,18 @@ def transform_sub(first_operand, second_operand):
     total_data.append("operand: .space 4")
     total_data.append("deplasament: .space 1")
 
-    lines_not, data_not = transform_not("sub_temp")
+    lines_not, data_not = transform_not(f"{first_operand}") #aplicam not pe primul operand, acum adaugam 1
     all_instructions.extend(lines_not)
     total_data.extend(data_not)
 
-    lines_a1, data_a1 = transform_add(second_operand, "sub_temp")
-    all_instructions.extend(lines_a1)
-    total_data.extend(data_a1)
-
-    lines_a2, data_a2 = transform_add("rez", "$1")
+    all_instructions.append(f"movl $1, %edx") #pentru a putea aduna 1 la primul operand trebuie sa punem 1 intr-un registru, am ales %edx; din aceasta cauza, un sub cu registrul %edx nu va functiona corect
+    lines_a2, data_a2 = transform_add("%edx", first_operand)
     all_instructions.extend(lines_a2)
     total_data.extend(data_a2)
 
-    all_instructions.append(f"movl rez, {second_operand}")
-
-
+    lines_a1, data_a1 = transform_add(first_operand, second_operand) #acum putem face add reg1, reg2; vom avea reg2 = reg2 + (~reg1+1)
+    all_instructions.extend(lines_a1)
+    total_data.extend(data_a1)
 
     return all_instructions, total_data
 
