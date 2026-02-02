@@ -1,4 +1,4 @@
-# MOVfuscator
+# MOVfuscator - WORK IN PROGRESS!
 
 Ivan Miruna Maria - Grupa 141
 Parapeanu Maria - Grupa 131
