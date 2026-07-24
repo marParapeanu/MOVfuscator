@@ -17,7 +17,7 @@ By utilizing precalculated **256x256 byte-level Look-Up Tables (LUTs)** stored i
 * **`add` (Byte-level Look-Up Adder):** 
   Operands are split into 4 bytes and processed sequentially. Registers are cached in dedicated memory locations to allow byte-by-byte extraction. Addition uses a $256 \times 256$ `sum_table` (where `index = row * 256 + col`) and a parallel `carry_table` to propagate carry bits across adjacent bytes.
 * **`sub` & `dec`:** 
-  Implemented via Two's Complement arithmetic ($A - B = A + (\sim B + 1)$). It executes bitwise NOT followed by addition with `$1` using dynamic allocations.
+  Implemented via Two's Complement arithmetic `($A - B = A + (\sim B + 1)$)`. It executes bitwise NOT followed by addition with `$1` using dynamic allocations.
 * **`inc`:** 
   Mapped directly to an `add` operation with an immediate operand of `$1`.
 * **`mul`:** 
